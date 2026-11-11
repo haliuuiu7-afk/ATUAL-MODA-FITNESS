@@ -624,6 +624,11 @@ textarea{min-height:120px}
     <div class="sub">Fale com a gente</div>
     <div class="contato-box">
       <div class="caixa">
+        <h3>WhatsApp</h3>
+        <p>Pedidos, comprovantes de Pix e dúvidas sobre tamanho.</p>
+        <a class="btn" href="https://wa.me/557999168473" target="_blank" rel="noopener">(79) 9916-8473</a>
+      </div>
+      <div class="caixa">
         <h3>Instagram</h3>
         <p>Dúvidas sobre tamanho, pedidos e novidades: chame no direct.</p>
         <a class="btn" href="https://www.instagram.com/_atualmodafitness" target="_blank" rel="noopener">@_atualmodafitness</a>
@@ -1415,7 +1420,8 @@ function remover(i){ CARRINHO.splice(i,1); atualizaQtd(); renderSacola(); }
 const PAGAMENTO = {
   infiniteTag: 'alais-gomes-dos-santos',
   pix: { chave:'alaisgomes2001@gmail.com', banco:'Bradesco', nome:'Alais Gomes' },
-  instagram: 'https://www.instagram.com/_atualmodafitness'
+  instagram: 'https://www.instagram.com/_atualmodafitness',
+  whatsapp: '557999168473'   // +55 79 9916-8473 (somente números, com 55 na frente)
 };
 const TEM_SERVIDOR = /^https?:/.test(location.protocol);
 let PG = { metodo:null };
@@ -1423,6 +1429,15 @@ function totaisCarrinho(){
   return CARRINHO.reduce((t,i)=>({pix:t.pix+i.pix*i.qtd, card:t.card+i.card*i.qtd, n:t.n+i.qtd}),{pix:0,card:0,n:0});
 }
 function cpfValido(c){c=(c||'').replace(/\D/g,'');if(c.length!=11||/^(\d)\1+$/.test(c))return false;for(let t=9;t<11;t++){let s=0;for(let i=0;i<t;i++)s+=+c[i]*(t+1-i);if((s*10%11)%10!=+c[t])return false}return true}
+
+function itensTexto(){ return CARRINHO.map(i=>'• '+i.qtd+'x '+i.nome+' — '+i.cor+', tam. '+i.tam).join('\n'); }
+function linkWhats(msg){ return 'https://wa.me/'+PAGAMENTO.whatsapp+'?text='+encodeURIComponent(msg); }
+function resumoPedido(c,total,metodo){
+  return '*Cliente:* '+c.nome+'\n*WhatsApp:* '+c.wa+(c.cpf?'\n*CPF:* '+c.cpf:'')+'\n\n*Peças:*\n'+itensTexto()+'\n\n*Total no '+metodo+':* '+brl(total);
+}
+function msgPago(nsu,g,valor){
+  return 'Olá! Acabei de pagar meu pedido no cartão pelo site da ATUAL.\n\n*Pedido:* '+nsu+(valor!=null?'\n*Valor pago:* '+brl(valor/100):'')+(g&&g.resumo?'\n\n'+g.resumo:'')+'\n\nPagamento confirmado pela InfinitePay. ✅';
+}
 function fechaPagto(){ document.getElementById('pagto').classList.remove('on'); }
 function finalizar(){
   if(!CARRINHO.length){ toast('Sua sacola está vazia'); return; }
@@ -1445,8 +1460,8 @@ function desenhaPagto(){
     extra = `<div class="pixbox"><b>Pix: ${p.chave}</b><br>Banco ${p.banco}<br>Nome: ${p.nome}<br>Valor: <b>${brl(T.pix)}</b></div>
       <button class="btn acao" onclick="copiaPix()">Copiar chave Pix</button>
       ${camposCliente()}
-      <button class="btn acao" onclick="confirmaPix()">Já fiz o Pix</button>
-      <div class="nota">Depois de pagar, envie o comprovante pelo <a href="${PAGAMENTO.instagram}" target="_blank" rel="noopener" style="text-decoration:underline">Instagram</a> informando seu nome para liberarmos o pedido.</div>`;
+      <button class="btn acao" onclick="confirmaPix()">Já fiz o Pix · enviar no WhatsApp</button>
+      <div class="nota">Depois de pagar, clique em “Já fiz o Pix”: abriremos o WhatsApp da loja com o seu pedido pronto. É só anexar o comprovante e enviar.</div>`;
   } else if(m==='cartao'){
     extra = `${camposCliente()}
       <button class="btn acao" id="pg-btn-cartao" onclick="pagarCartao()">Pagar ${brl(T.card)} no cartão</button>
@@ -1487,17 +1502,20 @@ async function confirmaPix(){
   const c = dadosCliente(); if(!c) return;
   const T = totaisCarrinho();
   const nsu = 'PIX-'+Date.now().toString(36).toUpperCase();
-  await registraPedido(nsu, 'pix', c);
+  const msg = 'Olá! Fiz um pedido no site da ATUAL e estou enviando o comprovante do Pix.\n\n*Pedido:* '+nsu+'\n'+resumoPedido(c,T.pix,'Pix')+'\n*Pix para:* '+PAGAMENTO.pix.chave+' ('+PAGAMENTO.pix.banco+' · '+PAGAMENTO.pix.nome+')\n\nSegue o comprovante 👇';
+  const link = linkWhats(msg);
+  try{ window.open(link,'_blank'); }catch(e){}
+  registraPedido(nsu, 'pix', c);
   document.getElementById('pagto-corpo').innerHTML = `<h3>Quase lá!</h3>
     <div class="resumo">Pedido <b>${nsu}</b> de <b>${c.nome}</b><br>Valor no Pix: <b>${brl(T.pix)}</b><br>Chave: ${PAGAMENTO.pix.chave} · ${PAGAMENTO.pix.banco} · ${PAGAMENTO.pix.nome}</div>
-    <p class="nota">Faça o Pix e envie o comprovante pelo Instagram citando o pedido <b>${nsu}</b>. Assim que confirmarmos, separamos o seu pedido.</p>
-    <a class="btn acao" style="display:block;text-align:center" href="${PAGAMENTO.instagram}" target="_blank" rel="noopener">Enviar comprovante no Instagram</a>`;
+    <p class="nota">Abrimos o WhatsApp da loja com o seu pedido pronto. <b>Anexe o comprovante do Pix</b> (ícone de clipe) e envie. Se não abriu, use o botão abaixo.</p>
+    <a class="btn acao" style="display:block;text-align:center" href="${link}" target="_blank" rel="noopener">Enviar pedido e comprovante no WhatsApp</a>`;
 }
 async function pagarCartao(){
   const c = dadosCliente(); if(!c) return;
   const tag = (PAGAMENTO.infiniteTag||'').replace(/^\$/,'').trim();
   const erro = document.getElementById('pg-erro'), btn = document.getElementById('pg-btn-cartao');
-  if(!tag){ erro.textContent = 'Pagamento no cartão ainda não configurado. Use o Pix ou fale com a loja pelo Instagram.'; return; }
+  if(!tag){ erro.textContent = 'Pagamento no cartão ainda não configurado. Use o Pix ou fale com a loja pelo WhatsApp.'; return; }
   const T = totaisCarrinho();
   const nsu = 'ATUAL-'+Date.now().toString(36).toUpperCase();
   const itens = CARRINHO.map(i=>({ quantity:i.qtd, price:Math.round(i.card*100), description:`${i.nome} - ${i.cor} - Tam ${i.tam}`.slice(0,120) }));
@@ -1510,7 +1528,7 @@ async function pagarCartao(){
     const d = await r.json().catch(()=>({}));
     const url = d.url || d.link;
     if(!r.ok || !url) throw new Error(d.message || 'Resposta inesperada da InfinitePay');
-    try{ sessionStorage.setItem('atual_pg_'+nsu, JSON.stringify({total:T.card, tag})); }catch(e){}
+    try{ sessionStorage.setItem('atual_pg_'+nsu, JSON.stringify({total:T.card, tag, resumo:resumoPedido(c,T.card,'cartão')})); }catch(e){}
     location.href = url;
   }catch(e){
     btn.disabled = false; btn.textContent = 'Pagar '+brl(T.card)+' no cartão';
@@ -1534,10 +1552,10 @@ async function pagarCartao(){
   if(pago && TEM_SERVIDOR){ try{ await fetch('/api/confirmar', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ order_nsu:nsu, transaction_nsu:tn, slug }) }); }catch(e){} }
   if(pago){
     const v = valor!=null ? ' Valor pago: <b>'+brl(valor/100)+'</b>.' : '';
-    box.innerHTML = '<h3>Pagamento confirmado!</h3><div class="resumo">Pedido <b>'+nsu+'</b>.'+v+'</div><p class="nota">Obrigada pela compra! Enviamos o seu pedido em até 2 dias úteis. Dúvidas? Chame no <a href="'+PAGAMENTO.instagram+'" target="_blank" rel="noopener" style="text-decoration:underline">Instagram</a>.</p><button class="btn acao" onclick="fechaPagto();history.replaceState(null,\'\',location.pathname)">Voltar à loja</button>';
+    box.innerHTML = '<h3>Pagamento confirmado!</h3><div class="resumo">Pedido <b>'+nsu+'</b>.'+v+'</div><p class="nota">Obrigada pela compra! Enviamos o seu pedido em até 2 dias úteis. Envie os detalhes do pedido para a loja pelo WhatsApp.</p><a class="btn acao" style="display:block;text-align:center" href="'+linkWhats(msgPago(nsu,guardado,valor))+'" target="_blank" rel="noopener">Enviar pedido no WhatsApp</a><button class="btn acao" onclick="fechaPagto();history.replaceState(null,\'\',location.pathname)">Voltar à loja</button>';
     CARRINHO.length = 0; try{ atualizaQtd(); }catch(e){}
   } else {
-    box.innerHTML = '<h3>'+(pago===false?'Pagamento ainda não confirmado':'Não conseguimos confirmar agora')+'</h3><p class="nota">Se você já pagou, envie o comprovante pelo <a href="'+PAGAMENTO.instagram+'" target="_blank" rel="noopener" style="text-decoration:underline">Instagram</a> citando o pedido <b>'+nsu+'</b>.</p><button class="btn acao" onclick="fechaPagto();history.replaceState(null,\'\',location.pathname)">Voltar à loja</button>';
+    box.innerHTML = '<h3>'+(pago===false?'Pagamento ainda não confirmado':'Não conseguimos confirmar agora')+'</h3><p class="nota">Se você já pagou, fale com a loja pelo <a href="'+linkWhats('Olá! Fiz o pagamento do pedido '+nsu+' e preciso de ajuda para confirmar.')+'" target="_blank" rel="noopener" style="text-decoration:underline">WhatsApp</a> citando o pedido <b>'+nsu+'</b>.</p><button class="btn acao" onclick="fechaPagto();history.replaceState(null,\'\',location.pathname)">Voltar à loja</button>';
   }
 })();
 
