@@ -148,7 +148,7 @@ $$('aside button[data-t]').forEach(b=>b.onclick=()=>{$$('aside button').forEach(
 let SRV={estado:'off'};
 const SRVOK=/^https?:/.test(location.protocol);
 const SUPA_URL='https://hsfmpottjcaqrymnwjew.supabase.co';
-const SUPA_KEY='COLE_AQUI_A_CHAVE_PUBLICA';   // a mesma chave pública do index.html
+const SUPA_KEY='sb_publishable_BN9O0JsGB6B0osTNvPX9mA__HR66yiy';   // a mesma chave pública do index.html
 async function api(p,opt={}){
  if(!SUPA_KEY||SUPA_KEY.indexOf('COLE_AQUI')===0)throw new Error('sem chave');
  const senha=sessionStorage.getItem(K.key)||'';let fn,args;
