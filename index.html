@@ -1428,7 +1428,7 @@ const PAGAMENTO = {
 };
 /* Pedidos direto no Supabase (chave PÚBLICA: pode ficar no site; ela só consegue criar pedidos) */
 const SUPA_URL = 'https://hsfmpottjcaqrymnwjew.supabase.co';
-const SUPA_KEY = 'COLE_AQUI_A_CHAVE_PUBLICA';   // Supabase > Project Settings > API Keys > anon / publishable
+const SUPA_KEY = 'sb_publishable_BN9O0JsGB6B0osTNvPX9mA__HR66yiy';   // Supabase > Project Settings > API Keys > anon / publishable
 const TEM_SERVIDOR = /^https?:/.test(location.protocol);
 let PG = { metodo:null };
 function totaisCarrinho(){
@@ -1521,15 +1521,19 @@ function dadosCliente(){
   return { nome:nome.trim(), wa, cpf };
 }
 /* envia o pedido ao painel admin (status inicial: Aguardando pagamento) */
+let REG_ERRO = '';
 async function registraPedido(nsu, metodo, c){
-  if(!supaPronto()) return false;
+  REG_ERRO = '';
+  if(!supaPronto()){ REG_ERRO = 'chave pública do Supabase não colocada no index (SUPA_KEY)'; return false; }
   const T = totaisCarrinho();
   const itens = CARRINHO.map(i=>({ nome:i.nome, cor:i.cor, tam:i.tam, qtd:i.qtd, preco: metodo==='pix'? i.pix : i.card }));
   try{
     const r = await fetch(SUPA_URL+'/rest/v1/pedidos', { method:'POST', headers:Object.assign({'Prefer':'return=minimal'},supaHeaders()), keepalive:true,
       body:JSON.stringify({ id:nsu, nome:c.nome, wa:c.wa, cpf:c.cpf||'', itens, valor: metodo==='pix'?T.pix:T.card, pag: metodo==='pix'?'Pix':'Cartão', status:'Aguardando pagamento' }) });
-    return r.ok || r.status===409;
-  }catch(e){ return false; }
+    if(r.ok || r.status===409) return true;
+    REG_ERRO = 'HTTP '+r.status+' · '+(await r.text().catch(()=>'')).slice(0,220);
+    return false;
+  }catch(e){ REG_ERRO = 'sem conexão com o Supabase ('+e.message+')'; return false; }
 }
 /* tela "Quase lá!": registra o pedido no admin e abre o WhatsApp da loja */
 async function quaseLa(metodo){
@@ -1559,7 +1563,8 @@ async function quaseLa(metodo){
   const ok = await reg, aviso = document.getElementById('pg-reg');
   if(aviso){
     if(ok){ aviso.innerHTML = '✓ Pedido registrado na loja.'; }
-    else { aviso.className = 'nota erro'; aviso.textContent = 'Não conseguimos registrar o pedido agora. Envie pelo WhatsApp (botão abaixo) que a loja confirma por lá.'; }
+    else { aviso.className = 'nota erro'; aviso.textContent = 'Não conseguimos registrar o pedido agora. Envie pelo WhatsApp (botão abaixo) que a loja confirma por lá.';
+      const d = document.createElement('small'); d.style.cssText='display:block;margin-top:6px;opacity:.7;word-break:break-word'; d.textContent = 'Detalhe técnico: '+REG_ERRO; aviso.appendChild(d); }
   }
 }
 function confirmaPix(){ return quaseLa('pix'); }
