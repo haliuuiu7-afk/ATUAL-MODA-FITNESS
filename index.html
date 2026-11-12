@@ -1516,9 +1516,10 @@ function copiaPix(){
 function dadosCliente(){
   const nome = (document.getElementById('pg-nome')||{}).value||'', wa = ((document.getElementById('pg-wa')||{}).value||'').replace(/\D/g,''), cpf = ((document.getElementById('pg-cpf')||{}).value||'').replace(/\D/g,'');
   if(nome.trim().length<2){ toast('Informe seu nome'); return null; }
-  if(wa.length<10){ toast('Informe o WhatsApp com DDD'); return null; }
+  const wa2 = ((wa.length===12||wa.length===13) && wa.indexOf('55')===0) ? wa.slice(2) : wa;
+  if(wa2.length<10 || wa2.length>11){ toast('Informe o WhatsApp com DDD, ex.: (79) 99999-9999'); return null; }
   if(cpf && !cpfValido(cpf)){ toast('CPF inválido'); return null; }
-  return { nome:nome.trim(), wa, cpf };
+  return { nome:nome.trim(), wa:wa2, cpf };
 }
 /* envia o pedido ao painel admin (status inicial: Aguardando pagamento) */
 let REG_ERRO = '';
@@ -1585,8 +1586,9 @@ async function pagarCartao(){
   btn.disabled = true; btn.textContent = 'Abrindo pagamento…'; erro.textContent = '';
   try{
     await registraPedido(nsu, 'cartao', c);
-    const r = await fetch('https://api.checkout.infinitepay.io/links', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(corpo) });
-    const d = await r.json().catch(()=>({}));
+    let r = await fetch('https://api.checkout.infinitepay.io/links', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(corpo) });
+    let d = await r.json().catch(()=>({}));
+    if(!r.ok && /invalid/i.test(d.message||'')){ delete corpo.customer.phone_number; r = await fetch('https://api.checkout.infinitepay.io/links', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(corpo) }); d = await r.json().catch(()=>({})); }
     const url = d.url || d.link;
     if(!r.ok || !url) throw new Error(d.message || 'Resposta inesperada da InfinitePay');
     try{ localStorage.setItem('atual_pg_'+nsu, JSON.stringify({total:T.card, resumo:resumoPedido(c,T.card,'cartão')})); }catch(e){}
