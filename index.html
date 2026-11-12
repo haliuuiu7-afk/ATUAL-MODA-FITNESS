@@ -133,6 +133,8 @@ section.bloco{padding:80px 5%}
 .badge.ouro{background:var(--gradiente)}
 .card h3{font-family:var(--display);font-weight:400;font-size:12px;letter-spacing:.12em;text-transform:uppercase;margin-top:14px}
 .card .preco{font-size:14px;margin-top:4px}
+.card .preco-pix{font-family:var(--serif);font-size:21px;line-height:1.1;font-weight:600;color:var(--grafite);margin-top:6px}
+.card .preco-pix small{font-family:var(--display);font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--bronze);margin-left:5px;font-weight:400}
 .card .preco s{color:var(--cinza);margin-right:6px;font-size:12px}
 .card .parc{font-size:12px;color:var(--cinza)}
 .swatches{display:flex;gap:6px;margin-top:8px}
@@ -1076,8 +1078,8 @@ function cardHTML(p){
   const sw = p.cores.slice(0,4).map(k=>`<span title="${CORES[k].nome}" style="background:${CORES[k].hex}"></span>`).join('');
   return `<div class="card" onclick="abrirProduto(${p.key})">${badge}${fotoCard(p)}
     <h3>${p.nome}</h3>
-    <div class="preco">${brl(p.card)}</div>
-    <div class="parc">no Pix ${brl(p.pix)}${p.card>=60?` · ou 3x ${brl(p.card/3)}`:''}</div>${p.notaCard?`<div class="parc">${p.notaCard}</div>`:''}
+    <div class="preco preco-pix">${brl(p.pix)}<small>no Pix</small></div>
+    <div class="parc">${brl(p.card)} no cartão${p.card>=60?` · ou 3x ${brl(p.card/3)}`:''}</div>${p.notaCard?`<div class="parc">${p.notaCard}</div>`:''}
     <div class="swatches">${sw}</div></div>`;
 }
 function produtoPorKey(k){ return PRODUTOS.find(p=>p.key==k); }
@@ -1395,7 +1397,8 @@ function renderSacola(){
       <div>
         <b style="font-family:var(--display);font-weight:500;letter-spacing:.1em;text-transform:uppercase;font-size:13px">${it.nome}</b>
         <div style="font-size:12px;color:#8a8a8a">${it.cor} · Tamanho ${it.tam} · Ref. ${it.ref}</div>
-        <div style="font-size:14px;margin-top:5px">${brl(it.pix*it.qtd)} <span style="font-size:12px;color:var(--bronze)">no Pix</span> <span style="color:#bbb">|</span> <span style="font-size:12px;color:#666">${brl(it.card*it.qtd)} no cartão</span></div>
+        <div style="font-family:var(--serif);font-size:19px;font-weight:600;margin-top:5px;line-height:1.1">${brl(it.pix*it.qtd)} <span style="font-family:var(--display);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--bronze);font-weight:400">no Pix</span></div>
+        <div style="font-size:12px;color:#666;margin-top:2px">${brl(it.card*it.qtd)} no cartão</div>
         <div class="qtd-box" style="margin:10px 0 6px">
           <button onclick="mudarQtdItem(${i},-1)">−</button>
           <span>${it.qtd}</span>
@@ -1406,8 +1409,8 @@ function renderSacola(){
       <div></div></div>`;
   }).join('');
   document.getElementById('sacola-total').innerHTML = `
-    <div style="font-size:15px;color:#666">Total no cartão: ${brl(totalCard)}</div>
-    <div style="color:var(--bronze);font-size:22px">Total no Pix: ${brl(totalPix)}</div>`;
+    <div style="color:var(--bronze);font-size:26px;font-weight:600">Total no Pix: ${brl(totalPix)}</div>
+    <div style="font-size:14px;color:#666;margin-top:2px">Total no cartão: ${brl(totalCard)}</div>`;
   atualizaQtd();
 }
 function mudarQtdItem(i,d){
@@ -1416,13 +1419,16 @@ function mudarQtdItem(i,d){
 }
 function remover(i){ CARRINHO.splice(i,1); atualizaQtd(); renderSacola(); }
 
-/* ---------- Pagamento: Pix e cartão (InfinitePay) + registro automático no painel ---------- */
+/* ---------- Pagamento: Pix e cartão (InfinitePay) + registro do pedido no painel admin ---------- */
 const PAGAMENTO = {
   infiniteTag: 'alais-gomes-dos-santos',
   pix: { chave:'alaisgomes2001@gmail.com', banco:'Bradesco', nome:'Alais Gomes' },
   instagram: 'https://www.instagram.com/_atualmodafitness',
   whatsapp: '557999168473'   // +55 79 9916-8473 (somente números, com 55 na frente)
 };
+/* Pedidos direto no Supabase (chave PÚBLICA: pode ficar no site; ela só consegue criar pedidos) */
+const SUPA_URL = 'https://hsfmpottjcaqrymnwjew.supabase.co';
+const SUPA_KEY = 'COLE_AQUI_A_CHAVE_PUBLICA';   // Supabase > Project Settings > API Keys > anon / publishable
 const TEM_SERVIDOR = /^https?:/.test(location.protocol);
 let PG = { metodo:null };
 function totaisCarrinho(){
@@ -1435,9 +1441,35 @@ function linkWhats(msg){ return 'https://wa.me/'+PAGAMENTO.whatsapp+'?text='+enc
 function resumoPedido(c,total,metodo){
   return '*Cliente:* '+c.nome+'\n*WhatsApp:* '+c.wa+(c.cpf?'\n*CPF:* '+c.cpf:'')+'\n\n*Peças:*\n'+itensTexto()+'\n\n*Total no '+metodo+':* '+brl(total);
 }
-function msgPago(nsu,g,valor){
-  return 'Olá! Acabei de pagar meu pedido no cartão pelo site da ATUAL.\n\n*Pedido:* '+nsu+(valor!=null?'\n*Valor pago:* '+brl(valor/100):'')+(g&&g.resumo?'\n\n'+g.resumo:'')+'\n\nPagamento confirmado pela InfinitePay. ✅';
+function supaHeaders(){
+  const h = { 'Content-Type':'application/json', 'apikey':SUPA_KEY };
+  if(SUPA_KEY.indexOf('eyJ')===0) h['Authorization'] = 'Bearer '+SUPA_KEY;
+  return h;
 }
+function supaPronto(){ return SUPA_KEY && SUPA_KEY.indexOf('COLE_AQUI')!==0; }
+/* ---------- Dados vindos do admin (catálogo, Pix, WhatsApp) ---------- */
+async function lerConfigAdmin(chave){
+  try{
+    const r = await fetch(SUPA_URL+'/rest/v1/rpc/site_config_ler', { method:'POST', headers:supaHeaders(), body:JSON.stringify({ chave }) });
+    return r.ok ? await r.json() : null;
+  }catch(e){ return null; }
+}
+(async function sincronizaAdmin(){
+  if(!supaPronto()) return;
+  const loja = await lerConfigAdmin('loja');
+  if(loja){
+    if(loja.pix) Object.assign(PAGAMENTO.pix, loja.pix);
+    if(loja.whatsapp) PAGAMENTO.whatsapp = String(loja.whatsapp).replace(/\D/g,'');
+  }
+  const cat = await lerConfigAdmin('catalogo');
+  if(cat){
+    const novo = JSON.stringify(cat);
+    let atual = null; try{ atual = localStorage.getItem('atual_admin_catalogo'); }catch(e){}
+    if(novo !== atual){
+      try{ localStorage.setItem('atual_admin_catalogo', novo); location.reload(); }catch(e){}
+    }
+  }
+})();
 function fechaPagto(){ document.getElementById('pagto').classList.remove('on'); }
 function finalizar(){
   if(!CARRINHO.length){ toast('Sua sacola está vazia'); return; }
@@ -1465,7 +1497,7 @@ function desenhaPagto(){
   } else if(m==='cartao'){
     extra = `${camposCliente()}
       <button class="btn acao" id="pg-btn-cartao" onclick="pagarCartao()">Pagar ${brl(T.card)} no cartão</button>
-      <div class="nota">Você será levado ao ambiente seguro da InfinitePay para digitar os dados do cartão. O valor é calculado automaticamente a partir dos preços do site, e as parcelas aparecem na tela de pagamento.</div>
+      <div class="nota">Você será levado ao ambiente seguro da InfinitePay para digitar os dados do cartão. Ao concluir, o pedido é liberado na hora e você envia o comprovante para a loja pelo WhatsApp.</div>
       <div class="erro" id="pg-erro"></div>`;
   }
   document.getElementById('pagto-corpo').innerHTML = `
@@ -1488,28 +1520,52 @@ function dadosCliente(){
   if(cpf && !cpfValido(cpf)){ toast('CPF inválido'); return null; }
   return { nome:nome.trim(), wa, cpf };
 }
-/* envia o pedido ao painel (servidor); se não houver servidor, segue normalmente */
+/* envia o pedido ao painel admin (status inicial: Aguardando pagamento) */
 async function registraPedido(nsu, metodo, c){
-  if(!TEM_SERVIDOR) return false;
+  if(!supaPronto()) return false;
   const T = totaisCarrinho();
   const itens = CARRINHO.map(i=>({ nome:i.nome, cor:i.cor, tam:i.tam, qtd:i.qtd, preco: metodo==='pix'? i.pix : i.card }));
   try{
-    const r = await fetch('/api/pedido', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ nsu, metodo, cliente:c, itens, total: metodo==='pix'? T.pix : T.card }) });
-    return r.ok;
+    const r = await fetch(SUPA_URL+'/rest/v1/pedidos', { method:'POST', headers:Object.assign({'Prefer':'return=minimal'},supaHeaders()), keepalive:true,
+      body:JSON.stringify({ id:nsu, nome:c.nome, wa:c.wa, cpf:c.cpf||'', itens, valor: metodo==='pix'?T.pix:T.card, pag: metodo==='pix'?'Pix':'Cartão', status:'Aguardando pagamento' }) });
+    return r.ok || r.status===409;
   }catch(e){ return false; }
 }
-async function confirmaPix(){
+/* tela "Quase lá!": registra o pedido no admin e abre o WhatsApp da loja */
+async function quaseLa(metodo){
   const c = dadosCliente(); if(!c) return;
-  const T = totaisCarrinho();
-  const nsu = 'PIX-'+Date.now().toString(36).toUpperCase();
-  const msg = 'Olá! Fiz um pedido no site da ATUAL e estou enviando o comprovante do Pix.\n\n*Pedido:* '+nsu+'\n'+resumoPedido(c,T.pix,'Pix')+'\n*Pix para:* '+PAGAMENTO.pix.chave+' ('+PAGAMENTO.pix.banco+' · '+PAGAMENTO.pix.nome+')\n\nSegue o comprovante 👇';
+  const T = totaisCarrinho(), pix = metodo==='pix';
+  const nsu = (pix?'PIX-':'CARTAO-')+Date.now().toString(36).toUpperCase();
+  const total = pix ? T.pix : T.card;
+  const msg = pix
+    ? 'Olá! Fiz um pedido no site da ATUAL e estou enviando o comprovante do Pix.\n\n*Pedido:* '+nsu+'\n'+resumoPedido(c,T.pix,'Pix')+'\n*Pix para:* '+PAGAMENTO.pix.chave+' ('+PAGAMENTO.pix.banco+' · '+PAGAMENTO.pix.nome+')\n\nSegue o comprovante 👇'
+    : 'Olá! Fiz um pedido no site da ATUAL e quero pagar no cartão de crédito.\n\n*Pedido:* '+nsu+'\n'+resumoPedido(c,T.card,'cartão')+'\n\nPode me enviar o link de pagamento?';
   const link = linkWhats(msg);
+  const reg = registraPedido(nsu, metodo, c);
   try{ window.open(link,'_blank'); }catch(e){}
-  registraPedido(nsu, 'pix', c);
+  const esc = s => String(s).replace(/[&<>"']/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  const detalhe = pix
+    ? `Valor no Pix: <b>${brl(total)}</b><br>Chave: ${PAGAMENTO.pix.chave} · ${PAGAMENTO.pix.banco} · ${PAGAMENTO.pix.nome}`
+    : `Valor no cartão: <b>${brl(total)}</b>`;
+  const orient = pix
+    ? 'Abrimos o WhatsApp da loja com o seu pedido pronto. <b>Anexe o comprovante do Pix</b> (ícone de clipe) e envie. Se não abriu, use o botão abaixo.'
+    : 'Abrimos o WhatsApp da loja com o seu pedido. Vamos te enviar o link para pagar no cartão de crédito. Se não abriu, use o botão abaixo.';
   document.getElementById('pagto-corpo').innerHTML = `<h3>Quase lá!</h3>
-    <div class="resumo">Pedido <b>${nsu}</b> de <b>${c.nome}</b><br>Valor no Pix: <b>${brl(T.pix)}</b><br>Chave: ${PAGAMENTO.pix.chave} · ${PAGAMENTO.pix.banco} · ${PAGAMENTO.pix.nome}</div>
-    <p class="nota">Abrimos o WhatsApp da loja com o seu pedido pronto. <b>Anexe o comprovante do Pix</b> (ícone de clipe) e envie. Se não abriu, use o botão abaixo.</p>
-    <a class="btn acao" style="display:block;text-align:center" href="${link}" target="_blank" rel="noopener">Enviar pedido e comprovante no WhatsApp</a>`;
+    <div class="resumo">Pedido <b>${nsu}</b> de <b>${esc(c.nome)}</b><br>${detalhe}</div>
+    <p class="nota">${orient}</p>
+    <p class="nota" id="pg-reg">Registrando seu pedido na loja…</p>
+    <a class="btn acao" style="display:block;text-align:center" href="${link}" target="_blank" rel="noopener">${pix?'Enviar pedido e comprovante no WhatsApp':'Enviar pedido no WhatsApp'}</a>`;
+  CARRINHO.length = 0; try{ atualizaQtd(); renderSacola(); }catch(e){}
+  const ok = await reg, aviso = document.getElementById('pg-reg');
+  if(aviso){
+    if(ok){ aviso.innerHTML = '✓ Pedido registrado na loja.'; }
+    else { aviso.className = 'nota erro'; aviso.textContent = 'Não conseguimos registrar o pedido agora. Envie pelo WhatsApp (botão abaixo) que a loja confirma por lá.'; }
+  }
+}
+function confirmaPix(){ return quaseLa('pix'); }
+function pedirCartao(){ return pagarCartao(); }
+function msgPago(nsu,g,valor){
+  return 'Olá! Acabei de pagar meu pedido no cartão pelo site da ATUAL.\n\n*Pedido:* '+nsu+(valor!=null?'\n*Valor pago:* '+brl(valor):'')+(g&&g.resumo?'\n\n'+g.resumo:'')+'\n\nSegue o comprovante do pagamento 👇';
 }
 async function pagarCartao(){
   const c = dadosCliente(); if(!c) return;
@@ -1520,7 +1576,7 @@ async function pagarCartao(){
   const nsu = 'ATUAL-'+Date.now().toString(36).toUpperCase();
   const itens = CARRINHO.map(i=>({ quantity:i.qtd, price:Math.round(i.card*100), description:`${i.nome} - ${i.cor} - Tam ${i.tam}`.slice(0,120) }));
   const corpo = { handle:tag, order_nsu:nsu, items:itens, customer:{ name:c.nome, phone_number:'+55'+c.wa } };
-  if(location.protocol==='https:'){ corpo.redirect_url = location.origin+location.pathname; corpo.webhook_url = location.origin+'/api/webhook'; }
+  if(location.protocol==='https:'){ corpo.redirect_url = location.origin+location.pathname; }
   btn.disabled = true; btn.textContent = 'Abrindo pagamento…'; erro.textContent = '';
   try{
     await registraPedido(nsu, 'cartao', c);
@@ -1528,35 +1584,34 @@ async function pagarCartao(){
     const d = await r.json().catch(()=>({}));
     const url = d.url || d.link;
     if(!r.ok || !url) throw new Error(d.message || 'Resposta inesperada da InfinitePay');
-    try{ sessionStorage.setItem('atual_pg_'+nsu, JSON.stringify({total:T.card, tag, resumo:resumoPedido(c,T.card,'cartão')})); }catch(e){}
+    try{ localStorage.setItem('atual_pg_'+nsu, JSON.stringify({total:T.card, resumo:resumoPedido(c,T.card,'cartão')})); }catch(e){}
     location.href = url;
   }catch(e){
     btn.disabled = false; btn.textContent = 'Pagar '+brl(T.card)+' no cartão';
     erro.textContent = 'Não foi possível abrir o pagamento agora. Tente novamente ou pague por Pix. ('+e.message+')';
   }
 }
+/* Volta da InfinitePay: libera o pedido na hora (sem consultar a InfinitePay e sem aprovação do admin) e abre o WhatsApp para o comprovante */
 (async function(){
   const q = new URLSearchParams(location.search);
-  const nsu = q.get('order_nsu'), tn = q.get('transaction_nsu'), slug = q.get('slug');
+  const nsu = q.get('order_nsu');
   if(!nsu) return;
   const box = document.getElementById('pagto-corpo'), wrap = document.getElementById('pagto');
-  let guardado = {}; try{ guardado = JSON.parse(sessionStorage.getItem('atual_pg_'+nsu)||'{}'); }catch(e){}
+  let g = {}; try{ g = JSON.parse(localStorage.getItem('atual_pg_'+nsu)||'{}'); }catch(e){}
+  const valor = g.total!=null ? g.total : (q.get('amount') ? Number(q.get('amount'))/100 : null);
   wrap.classList.add('on');
-  box.innerHTML = '<h3>Confirmando pagamento…</h3><p class="nota">Aguarde um instante.</p>';
-  let pago = null, valor = null;
-  try{
-    const r = await fetch('https://api.checkout.infinitepay.io/payment_check', { method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({ handle:guardado.tag||PAGAMENTO.infiniteTag, order_nsu:nsu, transaction_nsu:tn, slug }) });
-    const d = await r.json(); pago = !!(d.success && d.paid); valor = (d.paid_amount!=null? d.paid_amount : d.amount);
-  }catch(e){ pago = null; }
-  if(pago && TEM_SERVIDOR){ try{ await fetch('/api/confirmar', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ order_nsu:nsu, transaction_nsu:tn, slug }) }); }catch(e){} }
-  if(pago){
-    const v = valor!=null ? ' Valor pago: <b>'+brl(valor/100)+'</b>.' : '';
-    box.innerHTML = '<h3>Pagamento confirmado!</h3><div class="resumo">Pedido <b>'+nsu+'</b>.'+v+'</div><p class="nota">Obrigada pela compra! Enviamos o seu pedido em até 2 dias úteis. Envie os detalhes do pedido para a loja pelo WhatsApp.</p><a class="btn acao" style="display:block;text-align:center" href="'+linkWhats(msgPago(nsu,guardado,valor))+'" target="_blank" rel="noopener">Enviar pedido no WhatsApp</a><button class="btn acao" onclick="fechaPagto();history.replaceState(null,\'\',location.pathname)">Voltar à loja</button>';
-    CARRINHO.length = 0; try{ atualizaQtd(); }catch(e){}
-  } else {
-    box.innerHTML = '<h3>'+(pago===false?'Pagamento ainda não confirmado':'Não conseguimos confirmar agora')+'</h3><p class="nota">Se você já pagou, fale com a loja pelo <a href="'+linkWhats('Olá! Fiz o pagamento do pedido '+nsu+' e preciso de ajuda para confirmar.')+'" target="_blank" rel="noopener" style="text-decoration:underline">WhatsApp</a> citando o pedido <b>'+nsu+'</b>.</p><button class="btn acao" onclick="fechaPagto();history.replaceState(null,\'\',location.pathname)">Voltar à loja</button>';
+  const link = linkWhats(msgPago(nsu,g,valor));
+  box.innerHTML = '<h3>Pedido liberado!</h3><div class="resumo">Pedido <b>'+nsu+'</b>.'+(valor!=null?' Valor: <b>'+brl(valor)+'</b>.':'')+'</div><p class="nota">Obrigada pela compra! <b>Envie o comprovante do pagamento</b> para a loja pelo WhatsApp (ícone de clipe). Enviamos o seu pedido em até 2 dias úteis.</p><a class="btn acao" style="display:block;text-align:center" href="'+link+'" target="_blank" rel="noopener">Enviar comprovante no WhatsApp</a><p class="nota" id="pg-reg"></p>';
+  CARRINHO.length = 0; try{ atualizaQtd(); renderSacola(); }catch(e){}
+  try{ window.open(link,'_blank'); }catch(e){}
+  if(supaPronto()){
+    try{
+      const r = await fetch(SUPA_URL+'/rest/v1/rpc/site_pagamento_confirmado', { method:'POST', headers:supaHeaders(), keepalive:true,
+        body:JSON.stringify({ pid:nsu, valor_cent:valor==null?null:Math.round(valor*100), parc:1, trans:q.get('transaction_nsu')||'' }) });
+      document.getElementById('pg-reg').textContent = r.ok ? '✓ Pedido registrado na loja.' : '';
+    }catch(e){}
   }
+  try{ history.replaceState(null,'',location.pathname); }catch(e){}
 })();
 
 /* ---------- Toast ---------- */
