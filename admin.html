@@ -282,7 +282,8 @@ function logL(){$('#tbLog').innerHTML=ld(K.log,[]).slice(0,30).map(l=>`<tr><td>$
 let CAT=ld(K.cat,{removidos:[],editados:{},novos:[],cores:{}});
 const CORES=()=>Object.assign({},SNAP.cores,CAT.cores||{});
 const corNome=c=>(CORES()[c]||{}).nome||c;
-function salvaCat(){const ok=sv(K.cat,CAT);if(ok&&SRVOK)api('/api/config/catalogo',{method:'POST',body:JSON.stringify(CAT)}).then(r=>{if(!r.ok)throw 0}).catch(()=>toast('⚠ Catálogo salvo só neste navegador (sem conexão com o servidor)'));return ok}
+async function enviaSite(chave,valor){try{const r=await api('/api/config/'+chave,{method:'POST',body:JSON.stringify(valor)});if(!r.ok){const t=await r.text().catch(()=>'');throw new Error('HTTP '+r.status+' '+t.slice(0,160))}return true}catch(e){alert('⚠ Não consegui enviar ao site ('+(e.message||e)+'). Salvo só neste navegador. Rode o supabase_setup.sql e confira a senha.');return false}}
+function salvaCat(){const ok=sv(K.cat,CAT);if(ok&&SRVOK)enviaSite('catalogo',CAT).then(v=>{if(v)toast('✓ Alteração enviada ao site')});return ok}
 function listProd(){const q=($('#bp').value||'').toLowerCase();
  const ativos=catalogoAtual().filter(p=>p.nome.toLowerCase().includes(q));
  const rem=SNAP.prods.filter(p=>CAT.removidos.includes(p.id)&&p.nome.toLowerCase().includes(q));
@@ -323,7 +324,7 @@ async function iniCfg(){$('#cLoja').value=cfg.loja;let L=ld('atual_admin_loja',L
  $('#cPixChave').value=L.pix.chave;$('#cPixBanco').value=L.pix.banco;$('#cPixNome').value=L.pix.nome;$('#cWa').value=L.whatsapp}
 async function salvaLoja(){const L={pix:{chave:$('#cPixChave').value.trim(),banco:$('#cPixBanco').value.trim(),nome:$('#cPixNome').value.trim()},whatsapp:$('#cWa').value.replace(/\D/g,'')};
  if(!L.pix.chave||!L.whatsapp)return alert('Informe a chave Pix e o WhatsApp.');sv('atual_admin_loja',L);
- if(SRVOK){try{const r=await api('/api/config/loja',{method:'POST',body:JSON.stringify(L)});if(!r.ok)throw 0;toast('Dados do site salvos')}catch(e){alert('Não consegui salvar no servidor.')}}else toast('Salvo só neste navegador')}
+ if(SRVOK){if(await enviaSite('loja',L))toast('✓ Dados do site salvos')}else toast('Salvo só neste navegador')}
 function salvaCfg(){cfg.loja=$('#cLoja').value||cfg.loja;if($('#cSenha').value)cfg.senha=$('#cSenha').value;sv(K.cfg,cfg);$('#cSenha').value='';toast('Configurações salvas')}
 function backup(){dl('backup-atual.json',JSON.stringify({ped:PED,cat:CAT,cfg,mod:MOD,log:ld(K.log,[])}),'application/json')}
 function restaura(inp){const f=inp.files[0];if(!f)return;f.text().then(t=>{try{const b=JSON.parse(t);PED=b.ped||[];CAT=b.cat||CAT;sv(K.ped,PED);sv(K.cat,CAT);if(b.mod)sv(K.mod,b.mod);if(b.cfg)sv(K.cfg,b.cfg);toast('Backup restaurado');setTimeout(()=>location.reload(),700)}catch(e){alert('Arquivo inválido')}})}
